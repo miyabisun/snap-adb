@@ -1,0 +1,15 @@
+#!/bin/bash
+# Script to start the ADB Snap backend
+# This allows the user to run the server in their own terminal and see logs directly.
+
+# Move to the script's directory, then up one level to project root
+cd "$(dirname "$0")/.."
+
+# If a port argument is provided, set it as an environment variable
+if [ -n "$1" ]; then
+  export PORT=$1
+fi
+
+echo "Starting Backend Server (Civet) on port ${PORT:-3001}..."
+cd backend
+./node_modules/.bin/civet server.civet

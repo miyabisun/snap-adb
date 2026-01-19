@@ -1,0 +1,212 @@
+const express = require 'express'
+const { spawn } = require 'child_process'
+const path = require 'path'
+const fs = require 'fs'
+const Jimp = require 'jimp'
+const cors = require 'cors'
+
+const app = express()
+app.use cors()
+app.use express.json()
+
+const PORT = process.env.PORT || 3001
+const OUTPUT_DIR = path.resolve __dirname, '../output'
+
+if !fs.existsSync OUTPUT_DIR
+  fs.mkdirSync OUTPUT_DIR, recursive: true
+
+// Serve Frontend Static Files
+const FRONTEND_DIST = path.resolve __dirname, '../frontend/dist'
+app.use express.static FRONTEND_DIST
+
+// Configuration
+const SPAWN_OPTS = shell: true
+
+// --- PERSISTENT STREAM LOGIC ---
+
+let streamClients = []
+let ffmpegProcess = null
+let adbProcess = null
+let isStreaming = false
+
+function cleanupProcesses()
+  try
+    if adbProcess
+      adbProcess.kill()
+  catch e
+  try
+    if ffmpegProcess
+      ffmpegProcess.kill()
+  catch e
+  
+  adbProcess = null
+  ffmpegProcess = null
+
+function startStreamProcess()
+  return if isStreaming
+  isStreaming = true
+
+  console.log 'Starting persistent ADB/FFmpeg stream...'
+
+  adbProcess = spawn 'adb', ['shell', 'screenrecord', '--output-format=h264', '-'], SPAWN_OPTS
+
+  const boundary = 'boundary12345'
+  ffmpegProcess = spawn 'ffmpeg', [
+      '-i', '-'
+      '-f', 'mpjpeg'
+      '-boundary_tag', boundary
+      '-r', '10'
+      '-q:v', '5'
+      '-'
+  ], SPAWN_OPTS
+
+  adbProcess.stdout.pipe ffmpegProcess.stdin
+
+  ffmpegProcess.stdout.on 'data', (chunk) =>
+    for res of streamClients
+      try
+        res.write chunk
+      catch e
+
+  const restart = =>
+    return unless isStreaming
+    console.log 'Stream process died, restarting in 1s...'
+    cleanupProcesses()
+    setTimeout =>
+      startStreamProcess()
+    , 1000
+
+  adbProcess.on 'close', (code) =>
+    console.log `ADB exited: ${code}` if code !== 0 and code !== null
+    restart() if isStreaming
+
+  ffmpegProcess.on 'close', (code) =>
+    console.log `FFmpeg exited: ${code}` if code !== 0 and code !== null
+    restart() if isStreaming
+
+  adbProcess.stderr.on 'data', (d) => console.log 'ADB stderr:', d.toString()
+  // ffmpegProcess.stderr.on 'data', (d) => {}
+
+function stopStreamProcess()
+  isStreaming = false
+  cleanupProcesses()
+  console.log 'Stopped persistent stream.'
+
+// MJPEG Stream Endpoint
+app.get '/stream', (req, res) =>
+  const boundary = 'boundary12345'
+  
+  res.writeHead 200,
+    'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`
+    'Cache-Control': 'no-cache'
+    'Connection': 'close'
+    'Pragma': 'no-cache'
+
+  console.log 'Client connected. Total:', streamClients.length + 1
+  streamClients.push res
+
+  req.on 'close', =>
+    console.log 'Client disconnected.'
+    streamClients = streamClients.filter (c) => c !== res
+
+startStreamProcess()
+
+// Helpers for Snap
+function runAdbScreencap()
+  new Promise (resolve, reject) =>
+    const adb = spawn 'adb', ['exec-out', 'screencap', '-p'], SPAWN_OPTS
+    let buffers = []
+
+    adb.stdout.on 'data', (chunk) =>
+      buffers.push chunk
+
+    adb.on 'close', (code) =>
+      if code === 0
+        resolve Buffer.concat buffers
+      else
+        reject new Error `adb process exited with code ${code}`
+
+    adb.on 'error', (err) =>
+      reject err
+
+// Snap Endpoint
+app.post '/api/snap', (req, res) =>
+  try
+    const { x, y, w, h, filename } = req.body
+    
+    if !filename
+      return res.status(400).json error: 'Filename is required'
+
+    console.log `Snap requested: ${filename} [${x},${y},${w},${h}]`
+
+    // Capture a fresh frame - LOSSLESS PNG
+    const buffer = await runAdbScreencap()
+    console.log `Captured buffer size: ${buffer.length} bytes`
+
+    if buffer.length === 0
+      throw new Error 'Captured empty buffer from ADB'
+    
+    // Process with Jimp
+    const image = await Jimp.read buffer
+    
+    if x !== undefined and y !== undefined and w !== undefined and h !== undefined
+      const bitW = image.bitmap.width
+      const bitH = image.bitmap.height
+      console.log `Image info: ${bitW}x${bitH}`
+      
+      // Ensure numbers
+      const ix = parseInt x, 10
+      const iy = parseInt y, 10
+      const iw = parseInt w, 10
+      const ih = parseInt h, 10
+      
+      if isNaN(ix) or isNaN(iy) or isNaN(iw) or isNaN(ih)
+        throw new Error 'Invalid crop coordinates (NaN)'
+
+      image.crop
+        Math.max 0, ix
+        Math.max 0, iy
+        Math.min iw, bitW - ix
+        Math.min ih, bitH - iy
+
+    // Allow slashes for subdirectories, but sanitize other chars
+    // Replace non-alphanumeric/dash/underscore/slash with underscore
+    const cleanFilename = filename.replace /[^a-z0-9_\-\/]/gi, '_'
+    
+    const fullOutputPath = path.join OUTPUT_DIR, `${cleanFilename}.png`
+    const targetDir = path.dirname fullOutputPath
+
+    // Ensure subdirectory exists
+    if !fs.existsSync targetDir
+      fs.mkdirSync targetDir, recursive: true
+    
+    // Prevent directory traversal attacks (ensure it's still inside OUTPUT_DIR)
+    if !fullOutputPath.startsWith OUTPUT_DIR
+       return res.status(400).json error: 'Invalid filename path'
+
+    await image.writeAsync fullOutputPath
+    
+    console.log `Saved to ${fullOutputPath}`
+    res.json success: true, path: fullOutputPath
+
+  catch err
+    console.error 'Snap error occurred.'
+    console.error 'Message:', err.message
+    res.status(500).json error: err.message
+
+const server = app.listen PORT, =>
+  console.log `Backend running at http://localhost:${PORT}`
+  console.log `Stream available at http://localhost:${PORT}/stream`
+
+// Graceful Custom Cleanup
+process.on 'SIGINT', =>
+  console.log 'Stopping server...'
+  stopStreamProcess()
+  server.close =>
+    console.log 'Server closed.'
+    process.exit 0
+  
+  setTimeout =>
+    console.error 'Forcing shut down...'
+    process.exit 1
+  , 1000

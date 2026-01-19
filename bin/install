@@ -1,0 +1,15 @@
+#!/bin/bash
+# Script to install dependencies for both Backend and Frontend
+
+# Move to project root
+cd "$(dirname "$0")/.."
+
+echo "Installing Backend dependencies..."
+cd backend
+npm install
+
+echo "Installing Frontend dependencies..."
+cd ../frontend
+npm install
+
+echo "Installation Complete!"

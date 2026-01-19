@@ -1,0 +1,7 @@
+**/**/node_modules/
+dist/
+.env
+
+# Output directory: ignore images but keep the directory
+output/*
+!output/.gitkeep

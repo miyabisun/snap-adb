@@ -1,0 +1,16 @@
+#!/bin/bash
+# Script to clean up all generated images in the output directory
+# Usage: ./bin/clean-output
+
+# Move to project root
+cd "$(dirname "$0")/.."
+
+echo "Cleaning output directory..."
+
+# Remove all files/dirs in output/
+rm -rf output/*
+
+# Restore .gitkeep to ensure the directory stays valid for git
+touch output/.gitkeep
+
+echo "Output directory cleaned."
