@@ -1,45 +1,103 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
+/* Layout Compression */
 .container {
+  width: 98vw;
+  margin: 0 auto;
+  padding: 5px;
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Header Row: Title Left, Tabs Right */
+.header-row {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 5px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  line-height: 1;
+}
+
+/* Compact Tabs */
+.tabs {
+  display: flex;
+  margin: 0;
+  border: none;
+}
+
+.tab-btn {
+  padding: 5px 15px;
+  font-size: 1rem;
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: #646cff;
+  border-bottom-color: #646cff;
 }
 
 .controls {
   display: flex;
   gap: 10px;
   align-items: center;
-  background: #2a2a2a;
-  padding: 10px 20px;
-  border-radius: 8px;
+  margin-bottom: 5px;
+  width: 100%;
+  /* Full width to allow spacing */
+}
+
+/* Spacer to push hint to right */
+.spacer {
+  flex: 1;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: #666;
+  white-space: nowrap;
 }
 
 .controls input {
-  padding: 5px;
-  margin-left: 5px;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #333;
-  color: white;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+}
+
+.controls button {
+  padding: 4px 12px;
+  font-size: 0.9rem;
 }
 
 .status {
   margin-left: 10px;
-  color: #88ff88;
-  font-size: 0.9em;
+  font-size: 0.85rem;
+  color: #888;
 }
 
+.snap-btn {
+  background-color: #28a745;
+  color: white;
+  border: 1px solid #28a745;
+  font-weight: bold;
+}
+
+.snap-btn:hover {
+  background-color: #218838;
+}
+
+/* Stream Container - Maximize remaining space */
 .stream-container {
+  flex: 1;
   position: relative;
-  border: 4px solid #444;
-  display: inline-block;
   user-select: none;
 }
 
@@ -50,14 +108,52 @@
   cursor: crosshair;
 }
 
-.overlay {
+.selection-box {
   position: absolute;
   border: 2px solid #ff0000;
   background-color: rgba(255, 0, 0, 0.2);
-  pointer-events: none; /* Let clicks pass through to image for continued dragging if needed, though we handle on image */
+  pointer-events: auto;
+  /* Allow clicks to pass through to image */
+  cursor: move;
 }
 
-.dims {
+/* Resize Handles */
+.resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border: 1px solid red;
+  z-index: 10;
+  pointer-events: auto;
+  /* Re-enable events for handles */
+}
+
+.handle-nw {
+  top: -5px;
+  left: -5px;
+  cursor: nw-resize;
+}
+
+.handle-ne {
+  top: -5px;
+  right: -5px;
+  cursor: ne-resize;
+}
+
+.handle-sw {
+  bottom: -5px;
+  left: -5px;
+  cursor: sw-resize;
+}
+
+.handle-se {
+  bottom: -5px;
+  right: -5px;
+  cursor: se-resize;
+}
+
+.selection-size {
   position: absolute;
   bottom: -20px;
   left: 0;
@@ -65,9 +161,115 @@
   color: white;
   font-size: 10px;
   padding: 0 4px;
+  white-space: nowrap;
 }
 
-.hint {
-  color: #888;
-  margin-top: 10px;
+
+.gallery-container {
+  display: flex;
+  flex-direction: row;
+  /* Side-by-side */
+  height: 100%;
+  overflow: hidden;
+  gap: 10px;
+}
+
+.gallery-sidebar {
+  flex: 0 0 30%;
+  /* 30% width */
+  overflow-y: auto;
+  border-right: 1px solid #333;
+  padding-right: 10px;
+  box-sizing: border-box;
+}
+
+.delete-all-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  /* Red-ish button */
+  background-color: #551111;
+  color: #ffcccc;
+  border: 1px solid #882222;
+}
+
+.delete-all-btn:hover {
+  background-color: #772222;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #222;
+}
+
+.file-item:hover {
+  background-color: #2a2a2a;
+}
+
+.file-item.selected {
+  background-color: #3a3a4a;
+  border-left: 3px solid #646cff;
+}
+
+.file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 10px;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 5px;
+}
+
+.delete-btn:hover {
+  opacity: 0.8;
+}
+
+/* Gallery Preview Area */
+.gallery-preview {
+  flex: 1;
+  /* Remaing 70% */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+
+  /* Checkerboard Background */
+  background-color: #eee;
+  background-image:
+    linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%, #bbb),
+    linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%, #bbb);
+  background-size: 60px 60px;
+  background-position: 0 0, 30px 30px;
+  border-radius: 4px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.no-selection {
+  color: #666;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 20px;
+  border-radius: 8px;
 }

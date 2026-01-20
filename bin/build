@@ -1,0 +1,12 @@
+#!/bin/bash
+# Script to build the frontend
+# Usage: ./bin/build
+
+# Move to project root
+cd "$(dirname "$0")/.."
+
+echo "Building Frontend..."
+cd frontend
+npm run build
+
+echo "Build Complete. Frontend assets are in frontend/dist/"

@@ -9,6 +9,7 @@ A lightweight web-based tool to stream an Android device's screen via ADB and ca
 - **Cropping**: Intuitive mouse-based selection to crop specific areas (e.g., icons).
 - **High-Quality Snapshots**: Uses `adb exec-out screencap -p` to capture lossless PNGs directly from the device.
 - **Subdirectory Support**: Supports saving files into subdirectories (e.g., `category/icon_name`) with automatic folder creation.
+- **Gallery**: Built-in file browser to view, delete, and manage captured screenshots directly from the UI.
 - **Single Port**: Frontend and Backend run on a single port (3001) for easy access.
 
 ## Prerequisites
@@ -45,6 +46,12 @@ A lightweight web-based tool to stream an Android device's screen via ADB and ca
 - **Crop & Snap**: Drag on the video stream to select an area (red box), enter a filename, and click **SNAP**.
 - **Full Screen**: Click **SNAP** without selecting any area (or after clicking Clear) to save the full screen.
 - **Subdirectories**: Enter filenames like `ui/buttons/start_btn` to automatically create folders and save as `output/ui/buttons/start_btn.png`.
+
+### Gallery
+
+- **View**: Switch to the "Gallery" tab to browse saved images.
+- **Manage**: Click a file to preview it (on a checkerboard background for transparency checking).
+- **Delete**: Use the trash icon next to a file to delete it, or use "Delete All Images" to clear the output directory.
 
 ### Cleaning Up
 

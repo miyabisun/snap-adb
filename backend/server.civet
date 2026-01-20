@@ -19,6 +19,73 @@ if !fs.existsSync OUTPUT_DIR
 const FRONTEND_DIST = path.resolve __dirname, '../frontend/dist'
 app.use express.static FRONTEND_DIST
 
+// Serve Captures
+app.use '/captures', express.static OUTPUT_DIR
+
+// API: List Files
+app.get '/api/files', (req, res) =>
+  const files: string[] = []
+  
+  function scanDir(dir, relativePath = '')
+    const items = fs.readdirSync dir
+    for item of items
+      const fullPath = path.join dir, item
+      const itemRelPath = path.join relativePath, item
+      
+      const stat = fs.statSync fullPath
+      if stat.isDirectory()
+        scanDir fullPath, itemRelPath
+      else if item.endsWith '.png'
+        files.push itemRelPath
+
+  try
+    scanDir OUTPUT_DIR
+    res.json { files }
+  catch e
+    res.json { files: [] }
+
+// API: Delete Single File
+app.delete '/api/file', (req, res) =>
+  const { filename } = req.body
+  if !filename
+     return res.status(400).json error: 'Filename required'
+
+  // Security check: Normalize and ensure it is inside OUTPUT_DIR
+  const targetPath = path.join OUTPUT_DIR, filename
+  const resolvedPath = path.resolve targetPath
+  const resolvedOutput = path.resolve OUTPUT_DIR
+
+  if !resolvedPath.startsWith resolvedOutput
+    return res.status(403).json error: 'Invalid path'
+
+  try
+    if fs.existsSync targetPath
+      fs.unlinkSync targetPath
+      console.log `Deleted: ${targetPath}`
+      res.json success: true
+    else
+      res.status(404).json error: 'File not found'
+  catch e
+    console.error `Delete error: ${e.message}`
+    res.status(500).json error: e.message
+
+// API: Delete All Files
+app.delete '/api/files', (req, res) =>
+  try
+    console.log 'Deleting all files in output directory...'
+    // Re-create directory to empty it (simpler than recursive delete logic in code)
+    if fs.existsSync OUTPUT_DIR
+      fs.rmSync OUTPUT_DIR, recursive: true, force: true
+      fs.mkdirSync OUTPUT_DIR
+      
+    // Restore .gitkeep
+    fs.writeFileSync path.join(OUTPUT_DIR, '.gitkeep'), ''
+    
+    res.json success: true
+  catch e
+    console.error `Delete All error: ${e.message}`
+    res.status(500).json error: e.message
+
 // Configuration
 const SPAWN_OPTS = shell: true
 
@@ -34,10 +101,12 @@ function cleanupProcesses()
     if adbProcess
       adbProcess.kill()
   catch e
+    console.error e.message
   try
     if ffmpegProcess
       ffmpegProcess.kill()
   catch e
+    console.error e.message
   
   adbProcess = null
   ffmpegProcess = null
@@ -70,11 +139,10 @@ function startStreamProcess()
 
   const restart = =>
     return unless isStreaming
+    isStreaming = false
     console.log 'Stream process died, restarting in 1s...'
     cleanupProcesses()
-    setTimeout =>
-      startStreamProcess()
-    , 1000
+    setTimeout startStreamProcess, 1000
 
   adbProcess.on 'close', (code) =>
     console.log `ADB exited: ${code}` if code !== 0 and code !== null
@@ -169,9 +237,9 @@ app.post '/api/snap', (req, res) =>
         Math.min iw, bitW - ix
         Math.min ih, bitH - iy
 
-    // Allow slashes for subdirectories, but sanitize other chars
-    // Replace non-alphanumeric/dash/underscore/slash with underscore
-    const cleanFilename = filename.replace /[^a-z0-9_\-\/]/gi, '_'
+    // Relaxed sanitization: Allow all characters (including Japanese)
+    // Security is handled by path.resolve traversal check below
+    const cleanFilename = filename
     
     const fullOutputPath = path.join OUTPUT_DIR, `${cleanFilename}.png`
     const targetDir = path.dirname fullOutputPath
