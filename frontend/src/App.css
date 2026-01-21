@@ -110,7 +110,8 @@ h1 {
 
 .selection-box {
   position: absolute;
-  border: 2px solid #ff0000;
+  border: none;
+  outline: 1px solid #ff0000;
   background-color: rgba(255, 0, 0, 0.2);
   pointer-events: auto;
   /* Allow clicks to pass through to image */
@@ -272,4 +273,12 @@ h1 {
   background: rgba(255, 255, 255, 0.8);
   padding: 20px;
   border-radius: 8px;
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
 }

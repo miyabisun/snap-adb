@@ -262,6 +262,55 @@ app.post '/api/snap', (req, res) =>
     console.error 'Message:', err.message
     res.status(500).json error: err.message
 
+// API: Crop Existing File (Overwrite)
+app.post '/api/crop', (req, res) =>
+  try
+    const { filename, x, y, w, h } = req.body
+    
+    if !filename
+      return res.status(400).json error: 'Filename is required'
+    
+    console.log `Crop requested: ${filename} [${x},${y},${w},${h}]`
+    
+    const targetPath = path.join OUTPUT_DIR, filename
+    
+    // Security check
+    if !path.resolve(targetPath).startsWith path.resolve(OUTPUT_DIR)
+      return res.status(403).json error: 'Invalid path'
+      
+    if !fs.existsSync targetPath
+      return res.status(404).json error: 'File not found'
+      
+    const image = await Jimp.read targetPath
+    
+    const bitW = image.bitmap.width
+    const bitH = image.bitmap.height
+    
+    // Ensure numbers
+    const ix = parseInt x, 10
+    const iy = parseInt y, 10
+    const iw = parseInt w, 10
+    const ih = parseInt h, 10
+    
+    if isNaN(ix) or isNaN(iy) or isNaN(iw) or isNaN(ih)
+      throw new Error 'Invalid crop coordinates (NaN)'
+
+    image.crop
+      Math.max 0, ix
+      Math.max 0, iy
+      Math.min iw, bitW - ix
+      Math.min ih, bitH - iy
+      
+    await image.writeAsync targetPath
+    console.log `Cropped and overwritten: ${targetPath}`
+    
+    res.json success: true
+    
+  catch err
+    console.error 'Crop error occurred.'
+    console.error 'Message:', err.message
+    res.status(500).json error: err.message
+
 const server = app.listen PORT, =>
   console.log `Backend running at http://localhost:${PORT}`
   console.log `Stream available at http://localhost:${PORT}/stream`

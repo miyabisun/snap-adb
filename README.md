@@ -51,6 +51,7 @@ A lightweight web-based tool to stream an Android device's screen via ADB and ca
 
 - **View**: Switch to the "Gallery" tab to browse saved images.
 - **Manage**: Click a file to preview it (on a checkerboard background for transparency checking).
+- **Crop**: Drag on the preview to select an area -> Use **Arrow Keys** to move (1px) -> **Shift+Arrow** to resize -> Click **CROP** (bottom-right) to overwrite.
 - **Delete**: Use the trash icon next to a file to delete it, or use "Delete All Images" to clear the output directory.
 
 ### Cleaning Up
