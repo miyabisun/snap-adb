@@ -14,7 +14,8 @@
     "adbkit": "^2.11.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
-    "jimp": "^0.22.12"
+    "jimp": "^0.22.12",
+    "opencv-wasm": "^4.3.0-10"
   },
   "devDependencies": {
     "@danielx/civet": "^0.11.1"

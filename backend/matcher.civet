@@ -1,0 +1,134 @@
+const { cv } = require 'opencv-wasm'
+const Jimp = require 'jimp'
+
+// Helper: Decode Base64 to Buffer
+function decodeBase64Image(dataString)
+  if !dataString return Buffer.alloc(0)
+  const matches = dataString.match /^data:image\/([a-zA-Z]*);base64,([^\"]*)/
+  if matches and matches.length === 3
+    return Buffer.from matches[2], 'base64'
+  return Buffer.from dataString, 'base64'
+
+// Helper: Convert buffer -> Mat
+async function bufferToMat(buffer)
+  const image = await Jimp.read buffer
+  const { width, height, data } = image.bitmap
+  // console.log `bufferToMat: ${width}x${height}, len=${data.length}, expected=${width*height*4}`
+  
+  // Create CV Mat from generic data (RGBA)
+  // cv.Mat takes (rows, cols) -> (height, width)
+  const mat = new cv.Mat height, width, cv.CV_8UC4
+  mat.data.set data
+  
+  // Convert to BGR/Gray for matching? usually matchTemplate works on color too, 
+  // but template and source must match.
+  // Input from ADB/Jimp is RGBA. 
+  // Let's keep RGBA matching or convert to RGB.
+  
+  // Remove Alpha channel for robust matching?
+  // Convert to Grayscale for robust matching
+  const grayMat = new cv.Mat()
+  cv.cvtColor mat, grayMat, cv.COLOR_RGBA2GRAY
+  mat.delete()
+  
+  return grayMat
+
+// Single Template Match
+function matchTemplate(screenMat, targetMat, threshold)
+  const result = new cv.Mat()
+  
+  try
+    // TM_CCOEFF_NORMED is standard good match
+    // Removed mask argument as it is not needed and potentially problematic
+    cv.matchTemplate screenMat, targetMat, result, cv.TM_CCOEFF_NORMED
+    
+    const minMax = cv.minMaxLoc result
+    const { maxVal, maxLoc } = minMax
+    
+    return
+      found: maxVal >= threshold
+      score: maxVal
+      x: maxLoc.x
+      y: maxLoc.y
+      
+  finally
+    result.delete()
+
+function freeMat(mat)
+  if mat and !mat.isDeleted()
+    mat.delete()
+
+// High-level: Find multiple targets in buffer
+async function findImages(screenBuffer, targets, threshold = 0.85)
+  const screenMat = await bufferToMat screenBuffer
+  const results = []
+  
+  try
+// (Removed debug logs)
+    /*
+    if screenMat.cols > 100 and screenMat.rows > 100
+      // ... Sanity Check Removed ...
+    */
+
+    for target of targets
+      let tMat = null
+      try
+        const tBuf = decodeBase64Image target.image
+        tMat = await bufferToMat tBuf
+        
+        // (Removed Pixel Peek Logs)
+        
+        const match = matchTemplate screenMat, tMat, threshold
+        results.push { name: target.name, ...match }
+        
+      catch e
+        // console.error `Match error for ${target.name}:`, e.message
+        results.push name: target.name, found: false, error: e.message
+      finally
+        freeMat tMat
+
+  finally
+    freeMat screenMat
+    
+  return results
+
+// Optimization: Pre-decode templates
+async function prepareTemplates(targets)
+  const mats = []
+  for target of targets
+    try
+      const tBuf = decodeBase64Image target.image
+      const mat = await bufferToMat tBuf
+      mats.push { name: target.name, mat }
+    catch e
+      console.error `Failed to prepare template ${target.name}:`, e.message
+
+  return mats
+
+function freeTemplates(tMats)
+  for tm of tMats
+    freeMat tm.mat
+
+// Optimization: Match against pre-decoded templates
+async function findImagesFromMats(screenBuffer, tMats, threshold = 0.85)
+  const screenMat = await bufferToMat screenBuffer
+  const results = []
+  
+  try
+    for tm of tMats
+      const match = matchTemplate screenMat, tm.mat, threshold
+      results.push { name: tm.name, ...match }
+  finally
+    freeMat screenMat
+    
+  return results
+
+module.exports = {
+  bufferToMat
+  matchTemplate
+  freeMat
+  findImages
+  prepareTemplates
+  freeTemplates
+  findImagesFromMats
+}

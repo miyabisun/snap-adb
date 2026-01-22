@@ -1,0 +1,76 @@
+const express = require 'express'
+const fs = require 'fs'
+const path = require 'path'
+const { OUTPUT_DIR } = require '../common.civet'
+
+const router = express.Router()
+
+// API: List Files
+router.get '/files', (req, res) =>
+  const files: string[] = []
+  
+  function scanDir(dir, relativePath = '')
+    // Safety check just in case
+    return unless fs.existsSync dir
+    
+    const items = fs.readdirSync dir
+    for item of items
+      const fullPath = path.join dir, item
+      const itemRelPath = path.join relativePath, item
+      
+      const stat = fs.statSync fullPath
+      if stat.isDirectory()
+        scanDir fullPath, itemRelPath
+      else if item.endsWith '.png'
+        files.push itemRelPath
+
+  try
+    scanDir OUTPUT_DIR
+    res.json { files }
+  catch e
+    console.error `Files list error: ${e.message}`
+    res.json { files: [] }
+
+// API: Delete Single File
+router.delete '/file', (req, res) =>
+  const { filename } = req.body
+  if !filename
+     return res.status(400).json error: 'Filename required'
+
+  // Security check: Normalize and ensure it is inside OUTPUT_DIR
+  const targetPath = path.join OUTPUT_DIR, filename
+  const resolvedPath = path.resolve targetPath
+  const resolvedOutput = path.resolve OUTPUT_DIR
+
+  if !resolvedPath.startsWith resolvedOutput
+    return res.status(403).json error: 'Invalid path'
+
+  try
+    if fs.existsSync targetPath
+      fs.unlinkSync targetPath
+      console.log `Deleted: ${targetPath}`
+      res.json success: true
+    else
+      res.status(404).json error: 'File not found'
+  catch e
+    console.error `Delete error: ${e.message}`
+    res.status(500).json error: e.message
+
+// API: Delete All Files
+router.delete '/files', (req, res) =>
+  try
+    console.log 'Deleting all files in output directory...'
+    // Re-create directory to empty it (simpler than recursive delete logic in code)
+    if fs.existsSync OUTPUT_DIR
+      fs.rmSync OUTPUT_DIR, recursive: true, force: true
+      fs.mkdirSync OUTPUT_DIR
+      
+    // Restore .gitkeep
+    fs.writeFileSync path.join(OUTPUT_DIR, '.gitkeep'), ''
+    
+    res.json success: true
+  catch e
+    console.error `Delete All error: ${e.message}`
+    res.status(500).json error: e.message
+
+module.exports = router

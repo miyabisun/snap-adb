@@ -1,0 +1,181 @@
+const express = require 'express'
+const { spawn } = require 'child_process'
+const { SPAWN_OPTS } = require '../common.civet'
+
+const router = express.Router()
+
+// Persistent Stream State
+let adbProcess = null
+let ffmpegProcess = null
+let streamClients = []
+
+// Optimization: Buffer latest frame for matching
+let latestFrameBuffer = null
+let streamInternalBuffer = Buffer.alloc(0)
+
+// Start Stream Helper
+function startStream()
+  if adbProcess
+     // Already running
+     return
+
+  console.log "Starting persistent ADB/FFmpeg stream..."
+
+  // 1. ADB Process
+  // Increase bitrate to 16Mbps for high quality source
+  adbProcess = spawn 'adb', ['exec-out', 'screenrecord', '--output-format=h264', '-'], SPAWN_OPTS
+  
+  // 2. FFmpeg Process
+  // Read h264 from stdin, output mjpeg to stdout
+  // REMOVED SCALING to ensure 1:1 match with templates (-vf scale=...)
+  // Kept framerate limit to avoid overloading
+  ffmpegProcess = spawn 'ffmpeg', [
+    '-i', 'pipe:0',
+    '-f', 'mpjpeg',
+    '-boundary_tag', 'myboundary',
+    '-r', '8', // Reduce framerate to 8fps for stability
+    '-q:v', '10', // Moderate quality (1=Best, 31=Worst)
+    'pipe:1'
+  ], SPAWN_OPTS
+
+  // Pipe ADB -> FFmpeg
+  adbProcess.stdout.pipe ffmpegProcess.stdin
+
+  // Log errors
+  adbProcess.stderr.on 'data', (data) => console.error `ADB Error: ${data}`
+  ffmpegProcess.stderr.on 'data', (data) =>
+    const msg = data.toString()
+    // Ignore progress
+    if msg.startsWith 'frame='
+       return
+
+    // Ignore startup info (Version, Config, Libs, Input/Output details)
+    const ignorePatterns = [
+      /^ffmpeg version/
+      /^\s+built with/
+      /^\s+configuration/
+      /^\s+lib/
+      /^Input #/
+      /^Output #/
+      /^\s+Stream/
+      /^\s+Metadata/
+      /^\s+Side data/
+      /^\s+Duration/
+      /^Stream mapping/
+      /^\s+encoder/
+    ]
+
+    if ignorePatterns.some (p) => msg.match p
+       return
+
+    console.error `FFmpeg Error: ${msg}`
+
+  // Handle FFmpeg output (MJPEG stream)
+  ffmpegProcess.stdout.on 'data', (chunk) =>
+    // 1. Broadcast to all connected clients
+    streamClients.forEach (res) =>
+      res.write chunk
+    
+    // 2. Buffer for internal access
+    processChunkForFrame(chunk)
+
+  // Cleanup on exit
+  adbProcess.on 'exit', (code) =>
+    console.log `ADB exited with code ${code}`
+    adbProcess = null
+    // Auto-restart if not manually stopped
+    if !isStopping
+      console.log "Restarting ADB stream in 1s..."
+      setTimeout startStream, 1000
+
+  ffmpegProcess.on 'exit', (code) =>
+    console.log `FFmpeg exited with code ${code}`
+    ffmpegProcess = null
+    latestFrameBuffer = null
+    streamInternalBuffer = Buffer.alloc(0)
+    // Restart logic is handled by ADB exit usually (pipe breaks), but if FFmpeg dies alone:
+    if !isStopping and adbProcess
+       console.log "FFmpeg died, restarting stream..."
+       // Kill ADB to trigger full restart cycle
+       adbProcess.kill() 
+    
+// Graceful Shutdown
+let isStopping = false
+function cleanup()
+  isStopping = true
+  console.log "Stopping stream processes..."
+  if adbProcess
+     adbProcess.kill 'SIGKILL'
+  if ffmpegProcess
+     ffmpegProcess.kill 'SIGKILL'
+
+process.on 'SIGINT', () =>
+  cleanup()
+  process.exit()
+
+process.on 'SIGTERM', () =>
+  cleanup()
+  process.exit()
+
+// Helper: Extract JPEG frames from MPJPEG stream chunks
+function processChunkForFrame(chunk)
+  streamInternalBuffer = Buffer.concat [streamInternalBuffer, chunk]
+
+  // Limit buffer size to prevent memory leaks if stream is weird (max 10MB)
+  if streamInternalBuffer.length > 10 * 1024 * 1024
+    console.warn "Stream buffer overflow, resetting"
+    streamInternalBuffer = Buffer.alloc(0)
+    return
+
+  // Find JPEG SOI (Start Of Image): FF D8
+  const soiIndex = streamInternalBuffer.indexOf Buffer.from([0xff, 0xd8])
+  
+  if soiIndex !== -1
+    // Found start, look for EOI (End Of Image): FF D9
+    // Search from after SOI
+    const eoiIndex = streamInternalBuffer.indexOf Buffer.from([0xff, 0xd9]), soiIndex + 2
+    
+    if eoiIndex !== -1
+      // We have a full frame!
+      // Extract it (inclusive of FF D9, so +2)
+      const frame = streamInternalBuffer.subarray soiIndex, eoiIndex + 2
+      
+      // Update latest available frame
+      latestFrameBuffer = Buffer.from frame // Copy it
+      
+      // Remove processed data from buffer (keep remaining tail)
+      streamInternalBuffer = streamInternalBuffer.subarray eoiIndex + 2
+      
+      // Recursively check if there's another frame in the remaining buffer
+      if streamInternalBuffer.length > 0
+        processChunkForFrame Buffer.alloc(0) // Trigger check on remaining
+
+// Public API for other modules to get the latest frame
+function getLatestFrame()
+  if !latestFrameBuffer
+    // If we have no frame yet (startup), return null or throw?
+    // Let's return null and let caller handle waiting
+    return null
+  return latestFrameBuffer
+
+// Initialize stream on module load
+startStream()
+
+router.get '/stream', (req, res) =>
+  res.writeHead 200,
+    'Content-Type': 'multipart/x-mixed-replace; boundary=myboundary'
+    'Cache-Control': 'no-cache'
+    'Connection': 'keep-alive'
+
+  streamClients.push res
+  console.log `Client connected. Total: ${streamClients.length}`
+
+  // Remove client on close
+  req.on 'close', () =>
+    streamClients = streamClients.filter (client) => client !== res
+    console.log `Client disconnected. Total: ${streamClients.length}`
+
+// Export Router AND the getLatestFrame helper
+router.getLatestFrame = getLatestFrame
+
+module.exports = router

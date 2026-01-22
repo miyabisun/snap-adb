@@ -1,0 +1,311 @@
+openapi: 3.0.0
+info:
+  title: SnapADB API
+  description: API for controlling ADB screen capture, streaming, and image matching.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+
+paths:
+  # --- Match Endpoints ---
+  /api/match/scan:
+    post:
+      summary: Scans the current screen for target images.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequest'
+      responses:
+        '200':
+          description: Scan results.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchResult'
+
+  /api/match/wait:
+    post:
+      summary: Waits until ALL target images are found simultaneously.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequestWithTimeout'
+      responses:
+        '200':
+          description: Wait results. Returns nulls on timeout.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchResult'
+                    nullable: true
+                  time:
+                    type: integer
+                    description: Time taken in ms.
+                    nullable: true
+
+  /api/match/race:
+    post:
+      summary: Waits until ANY target image is found.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequestWithTimeout'
+      responses:
+        '200':
+          description: Race results. Returns nulls on timeout.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchResult'
+                    nullable: true
+                  time:
+                    type: integer
+                    nullable: true
+                  winner:
+                    type: string
+                    description: Name of the first found target.
+                    nullable: true
+
+  /api/match/best:
+    post:
+      summary: Scans once and identifies the best match by score.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequest'
+      responses:
+        '200':
+          description: Best match result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchResult'
+                  winner:
+                    type: string
+                    description: Name of the best matching target (if found).
+                    nullable: true
+
+  # --- Snap Endpoints ---
+  /api/snap:
+    post:
+      summary: Captures a screenshot from the device.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+              properties:
+                filename:
+                  type: string
+                x:
+                  type: integer
+                y:
+                  type: integer
+                w:
+                  type: integer
+                h:
+                  type: integer
+      responses:
+        '200':
+          description: Capture successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  path:
+                    type: string
+
+  /api/crop:
+    post:
+      summary: Crops an existing captured image (overwrites).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - x
+                - y
+                - w
+                - h
+              properties:
+                filename:
+                  type: string
+                x:
+                  type: integer
+                y:
+                  type: integer
+                w:
+                  type: integer
+                h:
+                  type: integer
+      responses:
+        '200':
+          description: Crop successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  # --- File Endpoints ---
+  /api/files:
+    get:
+      summary: Lists all captured files.
+      responses:
+        '200':
+          description: List of files.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: string
+    delete:
+      summary: Deletes ALL captured files.
+      responses:
+        '200':
+          description: Deletion successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /api/file:
+    delete:
+      summary: Deletes a single file.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+              properties:
+                filename:
+                  type: string
+      responses:
+        '200':
+          description: Deletion successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  # --- Stream Endpoint ---
+  /stream:
+    get:
+      summary: MJPEG Video Stream
+      description: Returns a continuous MJPEG stream of the device screen.
+      responses:
+        '200':
+          description: MJPEG stream.
+          content:
+            multipart/x-mixed-replace:
+              schema:
+                type: string
+                format: binary
+
+components:
+  schemas:
+    Target:
+      type: object
+      required:
+        - name
+        - image
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+          description: Base64 encoded image string (data:image/png;base64,...)
+
+    MatchRequest:
+      type: object
+      required:
+        - targets
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Target'
+        threshold:
+          type: number
+          format: float
+          default: 0.85
+
+    MatchRequestWithTimeout:
+      allOf:
+        - $ref: '#/components/schemas/MatchRequest'
+        - type: object
+          properties:
+            timeout:
+              type: integer
+              default: 10000
+              description: Timeout in milliseconds.
+
+    MatchResult:
+      type: object
+      properties:
+        name:
+          type: string
+        found:
+          type: boolean
+        score:
+          type: number
+          format: float
+        x:
+          type: integer
+        y:
+          type: integer
+        error:
+          type: string

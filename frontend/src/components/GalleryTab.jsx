@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useBoxSelection } from '../hooks/useBoxSelection'
+import FileList from './FileList'
 
 const GalleryTab = () => {
     const [files, setFiles] = useState([])
@@ -99,29 +100,13 @@ const GalleryTab = () => {
 
     return (
         <div className="gallery-container" onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
-            <div className="gallery-sidebar">
-                <button className="delete-all-btn" onClick={handleDeleteAll}>
-                    Delete All Images
-                </button>
-                <ul className="file-list">
-                    {files.map(f => (
-                        <li
-                            key={f}
-                            className={`file-item ${selectedFile === f ? 'selected' : ''}`}
-                            onClick={() => setSelectedFile(f)}
-                        >
-                            <span className="file-name" title={f}>{f}</span>
-                            <button
-                                className="delete-btn"
-                                title="Delete"
-                                onClick={(e) => handleDelete(e, f)}
-                            >
-                                🗑️
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+            <FileList
+                files={files}
+                selectedFile={selectedFile}
+                onSelect={(f) => setSelectedFile(f)}
+                onDelete={handleDelete}
+                onDeleteAll={handleDeleteAll}
+            />
 
             <div className="gallery-preview">
                 {selectedFile ? (

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import './App.css'
+import AutomationTab from './components/AutomationTab'
 import LiveTab from './components/LiveTab'
 import GalleryTab from './components/GalleryTab'
 
 function App() {
-  const [tab, setTab] = useState('live') // 'live' | 'gallery'
+  const [tab, setTab] = useState('live') // 'live' | 'gallery' | 'match'
 
   return (
     <div className="container">
@@ -25,10 +26,19 @@ function App() {
           >
             Gallery
           </button>
+          <button
+            type="button"
+            className={`tab-btn ${tab === 'automation' ? 'active' : ''}`}
+            onClick={() => setTab('automation')}
+          >
+            Automation
+          </button>
         </div>
       </div>
 
-      {tab === 'live' ? <LiveTab /> : <GalleryTab />}
+      {tab === 'live' && <LiveTab />}
+      {tab === 'gallery' && <GalleryTab />}
+      {tab === 'automation' && <AutomationTab />}
     </div>
   )
 }

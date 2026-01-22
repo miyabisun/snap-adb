@@ -1,0 +1,145 @@
+const express = require 'express'
+const { sleep } = require '../common.civet'
+const matcher = require '../matcher.civet'
+const stream = require './stream.civet'
+
+const router = express.Router()
+
+// Helper: Get frame or wait briefly
+async function getScreenFrame()
+  let buffer = stream.getLatestFrame()
+  if !buffer
+    // Stream might be starting, wait a bit
+    await sleep 500
+    buffer = stream.getLatestFrame()
+    if !buffer
+      throw new Error 'Stream not ready or no frames available'
+  return buffer
+
+// 1. Direct Scan (Once)
+router.post '/match/scan', (req, res) =>
+  try
+    const { targets, threshold } = req.body
+    if !targets or !Array.isArray targets
+      return res.status(400).json error: 'targets array required'
+
+    // Capture screen (FROM STREAM)
+    const buffer = await getScreenFrame()
+    
+    // Match
+    console.log `Scan: Searching for [${targets.map((t) => t.name).join(', ')}]`
+    const results = await matcher.findImages buffer, targets, threshold
+    
+    res.json { results }
+  catch e
+    console.error 'Scan error:', e.message
+    res.status(500).json error: e.message
+
+// 2. Wait (Polling) - Wait for ALL targets
+router.post '/match/wait', (req, res) =>
+  const { targets, threshold, timeout } = req.body
+  const timeoutMs = parseInt(timeout || '5000', 10)
+  const startTime = Date.now()
+  
+  try
+    if !targets or !Array.isArray targets
+      return res.status(400).json error: 'targets array required'
+
+    console.log `Wait: Waiting for [${targets.map((t) => t.name).join(', ')}]...`
+
+    // Optimization: Decode targets once
+    const tMats = await matcher.prepareTemplates targets
+    // Last known results (for debug/timeout? - currently returning null on timeout)
+    let lastResults = []
+
+    try
+      while Date.now() - startTime < timeoutMs
+        // Non-blocking frame fetch
+        const buffer = stream.getLatestFrame()
+        
+        if buffer
+           const results = await matcher.findImagesFromMats buffer, tMats, threshold
+           lastResults = results
+
+           // Wait for ALL to be found
+           const allFound = results.every (r) => r.found
+           const time = Date.now() - startTime
+           
+           if allFound
+             return res.json { results, time }
+        
+        await sleep 100 // Fast poll since no ADB overhead
+        
+      res.json { results: null, time: null }
+    finally
+       matcher.freeTemplates tMats
+
+  catch e
+    console.error 'Wait error:', e.message
+    res.status(500).json error: e.message
+
+// 3. Race - Wait for ANY target
+router.post '/match/race', (req, res) =>
+  const { targets, threshold, timeout } = req.body
+  const timeoutMs = parseInt(timeout || '5000', 10)
+  const startTime = Date.now()
+  
+  try
+    if !targets or !Array.isArray targets
+       return res.status(400).json error: 'targets array required'
+
+    console.log `Race: Waiting for [${targets.map((t) => t.name).join(', ')}]...`
+
+    const tMats = await matcher.prepareTemplates targets
+
+    try
+      while Date.now() - startTime < timeoutMs
+        const buffer = stream.getLatestFrame()
+        
+        if buffer
+          const results = await matcher.findImagesFromMats buffer, tMats, threshold
+          
+          // Wait for ANY to be found
+          const found = results.find (r) => r.found
+          const time = Date.now() - startTime
+          
+          if found
+             return res.json { results, time, winner: found.name }
+        
+        await sleep 100 
+      
+      res.json { results: null, time: null, winner: null }
+    finally
+       matcher.freeTemplates tMats
+
+  catch e
+    console.error 'Race error:', e.message
+    res.status(500).json error: e.message
+
+// 4. Best (Scan once) - Return all results + best candidate
+router.post '/match/best', (req, res) =>
+  try
+    const { targets, threshold } = req.body
+    if !targets or !Array.isArray targets
+      return res.status(400).json error: 'targets array required'
+
+    console.log `Best: Scanning for [${targets.map((t) => t.name).join(', ')}]`
+
+    // Capture
+    const buffer = await getScreenFrame()
+
+    // Use provided threshold or default 0.85 so 'found' status is meaningful
+    const results = await matcher.findImages buffer, targets, threshold
+    
+    // Sort by score desc to find best
+    results.sort (a, b) => b.score - a.score
+    
+    // Return all results + best name (standardized as 'winner')
+    // Only set winner if the best result actually meets the threshold (found=true)
+    const best = results[0]
+    res.json { results, winner: best?.found ? best.name : null }
+  catch e
+    console.error 'Best error:', e.message
+    res.status(500).json error: e.message
+
+module.exports = router

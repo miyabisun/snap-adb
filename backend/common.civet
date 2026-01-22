@@ -1,0 +1,98 @@
+const path = require 'path'
+const fs = require 'fs'
+const { spawn } = require 'child_process'
+
+const OUTPUT_DIR = path.resolve __dirname, '../output'
+const SPAWN_OPTS = shell: true
+
+// Ensure output dir exists
+if !fs.existsSync OUTPUT_DIR
+  fs.mkdirSync OUTPUT_DIR, recursive: true
+
+function runAdbScreencap()
+  new Promise (resolve, reject) =>
+    const adb = spawn 'adb', ['exec-out', 'screencap', '-p'], SPAWN_OPTS
+    let buffers = []
+
+    adb.stdout.on 'data', (chunk) =>
+      buffers.push chunk
+
+    adb.on 'close', (code) =>
+      if code === 0
+        resolve Buffer.concat buffers
+      else
+        reject new Error `adb process exited with code ${code}`
+
+    adb.on 'error', (err) =>
+      reject err
+
+// Helper for general ADB commands (no output needed usually)
+function runAdbCommand(args: string[])
+  new Promise (resolve, reject) =>
+    console.log `ADB Command: adb ${args.join(' ')}`
+    const adb = spawn 'adb', args, SPAWN_OPTS
+    
+    adb.on 'close', (code) =>
+      if code === 0
+        resolve true
+      else
+        reject new Error `ADB command failed with code ${code}`
+
+    adb.on 'error', (err) =>
+      reject err
+
+// Helper: Get Device Physical Size (Orientation Aware)
+function getDeviceSize()
+  new Promise (resolve, reject) =>
+    // 1. Get Physical Size
+    const adbSize = spawn 'adb', ['shell', 'wm', 'size'], SPAWN_OPTS
+    let sizeOutput = ''
+    adbSize.stdout.on 'data', (c) => sizeOutput += c.toString()
+    
+    adbSize.on 'close', (code) =>
+      if code !== 0
+        return reject new Error `ADB wm size failed: ${code}`
+        
+      const match = sizeOutput.match /Physical size: (\d+)x(\d+)/
+      if !match
+        return reject new Error 'Could not parse device size'
+        
+      let w = parseInt match[1]
+      let h = parseInt match[2]
+
+      // 2. Get Orientation
+      // Use dumpsys display and grep for 'mCurrentOrientation'
+      // Note: grep is usually available on Android, but running it on host is safer/standard
+      // We'll run adb shell dumpsys display and pipe in Node or just capture first chunk
+      // 'dumpsys display' is huge, so using grep inside shell is preferred to reduce data transfer
+      const adbRot = spawn 'adb', ['shell', 'dumpsys display | grep mCurrentOrientation'], SPAWN_OPTS
+      let rotOutput = ''
+      adbRot.stdout.on 'data', (c) => rotOutput += c.toString()
+      
+      adbRot.on 'close', (code2) =>
+        // Default to portrait if check fails? Or Assume 0
+        let rotation = 0
+        const rotMatch = rotOutput.match /mCurrentOrientation=(\d)/
+        if rotMatch
+           rotation = parseInt rotMatch[1]
+           
+        // Swap if Landscape (1 or 3)
+        if rotation === 1 or rotation === 3
+           const temp = w
+           w = h
+           h = temp
+           
+        resolve width: w, height: h
+
+    adbSize.on 'error', reject
+
+const sleep = (ms) => new Promise (req) => setTimeout req, ms
+
+module.exports = {
+  OUTPUT_DIR
+  SPAWN_OPTS
+  runAdbScreencap
+  runAdbCommand
+  getDeviceSize
+  sleep
+}
