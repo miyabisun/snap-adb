@@ -277,7 +277,11 @@ curl http://localhost:3000/api/device/size
 Response:
 ```json
 {
-  "width": 1200,
+  "mode": "portrait",
+  "orientation": 0,
+  "width": 1080,
   "height": 1920
 }
 ```
+
+`orientation`: 0=portrait, 1=landscape-left, 2=portrait-upside-down, 3=landscape-right

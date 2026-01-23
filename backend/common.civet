@@ -79,13 +79,18 @@ export function getDeviceSize()
         if rotMatch
            rotation = parseInt rotMatch[1]
            
-        // Swap if Landscape (1 or 3)
-        if rotation === 1 or rotation === 3
+        // Determine mode and swap if Landscape (1 or 3)
+        const isLandscape = rotation === 1 or rotation === 3
+        if isLandscape
            const temp = w
            w = h
            h = temp
            
-        resolve width: w, height: h
+        resolve
+          mode: if isLandscape then 'landscape' else 'portrait'
+          orientation: rotation
+          width: w
+          height: h
 
     adbSize.on 'error', reject
 
