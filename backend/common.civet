@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
+import adbPath from './utils/adb-path.civet'
 
 const __dirname = path.dirname fileURLToPath import.meta.url
 
@@ -14,7 +15,7 @@ if !fs.existsSync OUTPUT_DIR
 
 export function runAdbScreencap()
   new Promise (resolve, reject) =>
-    const adb = spawn 'adb', ['exec-out', 'screencap', '-p'], SPAWN_OPTS
+    const adb = spawn adbPath, ['exec-out', 'screencap', '-p'], SPAWN_OPTS
     let buffers = []
 
     adb.stdout.on 'data', (chunk) =>
@@ -33,7 +34,7 @@ export function runAdbScreencap()
 export function runAdbCommand(args: string[])
   new Promise (resolve, reject) =>
     console.log `ADB Command: adb ${args.join(' ')}`
-    const adb = spawn 'adb', args, SPAWN_OPTS
+    const adb = spawn adbPath, args, SPAWN_OPTS
     
     adb.on 'close', (code) =>
       if code === 0
@@ -48,7 +49,7 @@ export function runAdbCommand(args: string[])
 export function getDeviceSize()
   new Promise (resolve, reject) =>
     // 1. Get Physical Size
-    const adbSize = spawn 'adb', ['shell', 'wm', 'size'], SPAWN_OPTS
+    const adbSize = spawn adbPath, ['shell', 'wm', 'size'], SPAWN_OPTS
     let sizeOutput = ''
     adbSize.stdout.on 'data', (c) => sizeOutput += c.toString()
     
@@ -68,7 +69,7 @@ export function getDeviceSize()
       // Note: grep is usually available on Android, but running it on host is safer/standard
       // We'll run adb shell dumpsys display and pipe in Node or just capture first chunk
       // 'dumpsys display' is huge, so using grep inside shell is preferred to reduce data transfer
-      const adbRot = spawn 'adb', ['shell', 'dumpsys display | grep mCurrentOrientation'], SPAWN_OPTS
+      const adbRot = spawn adbPath, ['shell', 'dumpsys display | grep mCurrentOrientation'], SPAWN_OPTS
       let rotOutput = ''
       adbRot.stdout.on 'data', (c) => rotOutput += c.toString()
       

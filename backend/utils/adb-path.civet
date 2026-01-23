@@ -1,0 +1,16 @@
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname fileURLToPath import.meta.url
+
+// Resolve path relative to this file (utils/adb-path.civet)
+const binaryName = process.platform === 'win32' ? 'adb.exe' : 'adb'
+const ADB_LOCAL_PATH = path.resolve __dirname, `../local-adb/platform-tools/${binaryName}`
+
+let finalAdbPath = 'adb' // Default to system ADB
+
+if fs.existsSync ADB_LOCAL_PATH
+  finalAdbPath = ADB_LOCAL_PATH
+  
+export default finalAdbPath

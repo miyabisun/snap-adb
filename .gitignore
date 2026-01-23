@@ -5,3 +5,4 @@ dist/
 # Output directory: ignore images but keep the directory
 output/*
 !output/.gitkeep
+backend/local-adb/

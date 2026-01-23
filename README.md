@@ -20,8 +20,8 @@ A lightweight web-based tool to stream an Android device's screen via ADB and ca
 | Dependency | Purpose | Install (Ubuntu/Debian) |
 |------------|---------|-------------------------|
 | **Node.js** (v20+) | Runtime for backend/frontend | `nvm install 20` or [nodejs.org](https://nodejs.org/) |
-| **ADB** | Android device communication | `sudo apt install android-tools-adb` |
-| **FFmpeg** | Video stream transcoding | `sudo apt install ffmpeg` |
+
+
 
 ### Hardware
 
@@ -37,6 +37,8 @@ These are installed automatically by `./bin/install`:
 | `jimp` | Image processing (crop, read PNG) |
 | `opencv-wasm` | Template matching (WebAssembly, no native deps) |
 | `@danielx/civet` | Civet language transpiler |
+| `ffmpeg-static` | FFmpeg binary for streaming |
+| `adb` (via script) | Android Debug Bridge (auto-downloaded) |
 | `react` + `vite` | Frontend UI |
 
 ## Installation

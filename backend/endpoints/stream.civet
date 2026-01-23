@@ -1,6 +1,8 @@
 import express from 'express'
 import { spawn } from 'child_process'
 import { SPAWN_OPTS } from '../common.civet'
+import ffmpegPath from 'ffmpeg-static'
+import adbPath from '../utils/adb-path.civet'
 
 const router = express.Router()
 
@@ -20,16 +22,18 @@ function startStream()
      return
 
   console.log "Starting persistent ADB/FFmpeg stream..."
+  console.log `Using FFmpeg binary: ${ffmpegPath}`
+  console.log `Using ADB binary: ${adbPath}`
 
   // 1. ADB Process
   // Increase bitrate to 16Mbps for high quality source
-  adbProcess = spawn 'adb', ['exec-out', 'screenrecord', '--output-format=h264', '-'], SPAWN_OPTS
+  adbProcess = spawn adbPath, ['exec-out', 'screenrecord', '--output-format=h264', '-'], SPAWN_OPTS
   
   // 2. FFmpeg Process
   // Read h264 from stdin, output mjpeg to stdout
   // REMOVED SCALING to ensure 1:1 match with templates (-vf scale=...)
   // Kept framerate limit to avoid overloading
-  ffmpegProcess = spawn 'ffmpeg', [
+  ffmpegProcess = spawn ffmpegPath, [
     '-i', 'pipe:0',
     '-f', 'mpjpeg',
     '-boundary_tag', 'myboundary',

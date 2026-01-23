@@ -11,5 +11,6 @@ npm install
 echo "Installing Frontend dependencies..."
 cd ../frontend
 npm install
+npm run build
 
 echo "Installation Complete!"
