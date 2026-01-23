@@ -1,8 +1,8 @@
-const express = require 'express'
-const fs = require 'fs'
-const path = require 'path'
-const Jimp = require 'jimp'
-const { OUTPUT_DIR, runAdbScreencap } = require '../common.civet'
+import express from 'express'
+import fs from 'fs'
+import path from 'path'
+import Jimp from 'jimp'
+import { OUTPUT_DIR, runAdbScreencap } from '../common.civet'
 
 const router = express.Router()
 
@@ -114,4 +114,4 @@ router.post '/crop', (req, res) =>
     console.error 'Crop error:', err.message
     res.status(500).json error: err.message
 
-module.exports = router
+export default router

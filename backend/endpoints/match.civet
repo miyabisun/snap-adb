@@ -1,17 +1,17 @@
-const express = require 'express'
-const { sleep } = require '../common.civet'
-const matcher = require '../matcher.civet'
-const stream = require './stream.civet'
+import express from 'express'
+import { sleep } from '../common.civet'
+import * as matcher from '../matcher.civet'
+import { getLatestFrame } from './stream.civet'
 
 const router = express.Router()
 
 // Helper: Get frame or wait briefly
 async function getScreenFrame()
-  let buffer = stream.getLatestFrame()
+  let buffer = getLatestFrame()
   if !buffer
     // Stream might be starting, wait a bit
     await sleep 500
-    buffer = stream.getLatestFrame()
+    buffer = getLatestFrame()
     if !buffer
       throw new Error 'Stream not ready or no frames available'
   return buffer
@@ -55,7 +55,7 @@ router.post '/match/wait', (req, res) =>
     try
       while Date.now() - startTime < timeoutMs
         // Non-blocking frame fetch
-        const buffer = stream.getLatestFrame()
+        const buffer = getLatestFrame()
         
         if buffer
            const results = await matcher.findImagesFromMats buffer, tMats, threshold
@@ -94,7 +94,7 @@ router.post '/match/race', (req, res) =>
 
     try
       while Date.now() - startTime < timeoutMs
-        const buffer = stream.getLatestFrame()
+        const buffer = getLatestFrame()
         
         if buffer
           const results = await matcher.findImagesFromMats buffer, tMats, threshold
@@ -142,4 +142,4 @@ router.post '/match/best', (req, res) =>
     console.error 'Best error:', e.message
     res.status(500).json error: e.message
 
-module.exports = router
+export default router

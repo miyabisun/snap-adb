@@ -1,15 +1,18 @@
-const path = require 'path'
-const fs = require 'fs'
-const { spawn } = require 'child_process'
+import path from 'path'
+import fs from 'fs'
+import { spawn } from 'child_process'
+import { fileURLToPath } from 'url'
 
-const OUTPUT_DIR = path.resolve __dirname, '../output'
-const SPAWN_OPTS = shell: true
+const __dirname = path.dirname fileURLToPath import.meta.url
+
+export const OUTPUT_DIR = path.resolve __dirname, '../output'
+export const SPAWN_OPTS = shell: true
 
 // Ensure output dir exists
 if !fs.existsSync OUTPUT_DIR
   fs.mkdirSync OUTPUT_DIR, recursive: true
 
-function runAdbScreencap()
+export function runAdbScreencap()
   new Promise (resolve, reject) =>
     const adb = spawn 'adb', ['exec-out', 'screencap', '-p'], SPAWN_OPTS
     let buffers = []
@@ -27,7 +30,7 @@ function runAdbScreencap()
       reject err
 
 // Helper for general ADB commands (no output needed usually)
-function runAdbCommand(args: string[])
+export function runAdbCommand(args: string[])
   new Promise (resolve, reject) =>
     console.log `ADB Command: adb ${args.join(' ')}`
     const adb = spawn 'adb', args, SPAWN_OPTS
@@ -42,7 +45,7 @@ function runAdbCommand(args: string[])
       reject err
 
 // Helper: Get Device Physical Size (Orientation Aware)
-function getDeviceSize()
+export function getDeviceSize()
   new Promise (resolve, reject) =>
     // 1. Get Physical Size
     const adbSize = spawn 'adb', ['shell', 'wm', 'size'], SPAWN_OPTS
@@ -86,13 +89,4 @@ function getDeviceSize()
 
     adbSize.on 'error', reject
 
-const sleep = (ms) => new Promise (req) => setTimeout req, ms
-
-module.exports = {
-  OUTPUT_DIR
-  SPAWN_OPTS
-  runAdbScreencap
-  runAdbCommand
-  getDeviceSize
-  sleep
-}
+export const sleep = (ms) => new Promise (req) => setTimeout req, ms

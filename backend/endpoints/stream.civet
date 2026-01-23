@@ -1,6 +1,6 @@
-const express = require 'express'
-const { spawn } = require 'child_process'
-const { SPAWN_OPTS } = require '../common.civet'
+import express from 'express'
+import { spawn } from 'child_process'
+import { SPAWN_OPTS } from '../common.civet'
 
 const router = express.Router()
 
@@ -151,7 +151,7 @@ function processChunkForFrame(chunk)
         processChunkForFrame Buffer.alloc(0) // Trigger check on remaining
 
 // Public API for other modules to get the latest frame
-function getLatestFrame()
+export function getLatestFrame()
   if !latestFrameBuffer
     // If we have no frame yet (startup), return null or throw?
     // Let's return null and let caller handle waiting
@@ -175,7 +175,4 @@ router.get '/stream', (req, res) =>
     streamClients = streamClients.filter (client) => client !== res
     console.log `Client disconnected. Total: ${streamClients.length}`
 
-// Export Router AND the getLatestFrame helper
-router.getLatestFrame = getLatestFrame
-
-module.exports = router
+export default router

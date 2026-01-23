@@ -1,5 +1,5 @@
-const { cv } = require 'opencv-wasm'
-const Jimp = require 'jimp'
+import cv from 'opencv-wasm'
+import Jimp from 'jimp'
 
 // Helper: Decode Base64 to Buffer
 function decodeBase64Image(dataString)
@@ -17,7 +17,7 @@ async function bufferToMat(buffer)
   
   // Create CV Mat from generic data (RGBA)
   // cv.Mat takes (rows, cols) -> (height, width)
-  const mat = new cv.Mat height, width, cv.CV_8UC4
+  const mat = new cv.cv.Mat height, width, cv.cv.CV_8UC4
   mat.data.set data
   
   // Convert to BGR/Gray for matching? usually matchTemplate works on color too, 
@@ -27,22 +27,22 @@ async function bufferToMat(buffer)
   
   // Remove Alpha channel for robust matching?
   // Convert to Grayscale for robust matching
-  const grayMat = new cv.Mat()
-  cv.cvtColor mat, grayMat, cv.COLOR_RGBA2GRAY
+  const grayMat = new cv.cv.Mat()
+  cv.cv.cvtColor mat, grayMat, cv.cv.COLOR_RGBA2GRAY
   mat.delete()
   
   return grayMat
 
 // Single Template Match
 function matchTemplate(screenMat, targetMat, threshold)
-  const result = new cv.Mat()
+  const result = new cv.cv.Mat()
   
   try
     // TM_CCOEFF_NORMED is standard good match
     // Removed mask argument as it is not needed and potentially problematic
-    cv.matchTemplate screenMat, targetMat, result, cv.TM_CCOEFF_NORMED
+    cv.cv.matchTemplate screenMat, targetMat, result, cv.cv.TM_CCOEFF_NORMED
     
-    const minMax = cv.minMaxLoc result
+    const minMax = cv.cv.minMaxLoc result
     const { maxVal, maxLoc } = minMax
     
     return
@@ -59,7 +59,7 @@ function freeMat(mat)
     mat.delete()
 
 // High-level: Find multiple targets in buffer
-async function findImages(screenBuffer, targets, threshold = 0.85)
+export async function findImages(screenBuffer, targets, threshold = 0.85)
   const screenMat = await bufferToMat screenBuffer
   const results = []
   
@@ -93,7 +93,7 @@ async function findImages(screenBuffer, targets, threshold = 0.85)
   return results
 
 // Optimization: Pre-decode templates
-async function prepareTemplates(targets)
+export async function prepareTemplates(targets)
   const mats = []
   for target of targets
     try
@@ -105,12 +105,12 @@ async function prepareTemplates(targets)
 
   return mats
 
-function freeTemplates(tMats)
+export function freeTemplates(tMats)
   for tm of tMats
     freeMat tm.mat
 
 // Optimization: Match against pre-decoded templates
-async function findImagesFromMats(screenBuffer, tMats, threshold = 0.85)
+export async function findImagesFromMats(screenBuffer, tMats, threshold = 0.85)
   const screenMat = await bufferToMat screenBuffer
   const results = []
   
@@ -122,13 +122,3 @@ async function findImagesFromMats(screenBuffer, tMats, threshold = 0.85)
     freeMat screenMat
     
   return results
-
-module.exports = {
-  bufferToMat
-  matchTemplate
-  freeMat
-  findImages
-  prepareTemplates
-  freeTemplates
-  findImagesFromMats
-}

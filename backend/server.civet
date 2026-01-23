@@ -1,16 +1,16 @@
-const express = require 'express'
-const cors = require 'cors'
-const path = require 'path'
-const { OUTPUT_DIR } = require './common.civet'
+import express from 'express'
+import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { OUTPUT_DIR } from './common.civet'
 
-// Helper to auto-register .civet extension handling if needed? 
-// We are running with civet CLI, so require works for .civet files if they are compiled or if we use civet/register equivalent.
-// When running `civet server.civet`, it compiles and runs.
-// `require './endpoints/files.civet'` should work if the civet loader is active.
-// Since we run with `./node_modules/.bin/civet server.civet`, it typically handles imports of .civet files seamlessly?
-// Actually, `civet` CLI usually compiles the entry file. For `require` to work on .civet files, we might need to register the loader OR compile them.
-// "civet" CLI acts like "ts-node". It should handle it.
-// Let's assume it works.
+import filesRouter from './endpoints/files.civet'
+import snapRouter from './endpoints/snap.civet'
+import matchRouter from './endpoints/match.civet'
+import actionRouter from './endpoints/action.civet'
+import streamRouter from './endpoints/stream.civet'
+
+const __dirname = path.dirname fileURLToPath import.meta.url
 
 const app = express()
 app.use cors()
@@ -29,13 +29,13 @@ app.use '/captures', express.static OUTPUT_DIR
 // 3. Mount API Endpoints
 // Note: Endpoints define their own paths relative to mount point
 // files.civet has router.get('/files'), mounted at /api => /api/files
-app.use '/api', require './endpoints/files.civet'
-app.use '/api', require './endpoints/snap.civet'
-app.use '/api', require './endpoints/match.civet'
-app.use '/api', require './endpoints/action.civet'
+app.use '/api', filesRouter
+app.use '/api', snapRouter
+app.use '/api', matchRouter
+app.use '/api', actionRouter
 
 // Stream is at /stream, mounted at root
-app.use '/', require './endpoints/stream.civet'
+app.use '/', streamRouter
 
 // Start Server
 const server = app.listen PORT, =>

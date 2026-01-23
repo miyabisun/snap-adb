@@ -1,7 +1,7 @@
-const express = require 'express'
-const fs = require 'fs'
-const path = require 'path'
-const { OUTPUT_DIR } = require '../common.civet'
+import express from 'express'
+import fs from 'fs'
+import path from 'path'
+import { OUTPUT_DIR } from '../common.civet'
 
 const router = express.Router()
 
@@ -73,4 +73,4 @@ router.delete '/files', (req, res) =>
     console.error `Delete All error: ${e.message}`
     res.status(500).json error: e.message
 
-module.exports = router
+export default router
