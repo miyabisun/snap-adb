@@ -66,11 +66,11 @@ router.post '/match/wait', (req, res) =>
            const time = Date.now() - startTime
            
            if allFound
-             return res.json { results, time }
+             return res.json { success: true, results, time }
         
         await sleep 100 // Fast poll since no ADB overhead
         
-      res.json { results: null, time: null }
+      res.json { success: false, results: lastResults, time: timeoutMs }
     finally
        matcher.freeTemplates tMats
 
@@ -91,24 +91,25 @@ router.post '/match/race', (req, res) =>
     console.log `Race: Waiting for [${targets.map((t) => t.name).join(', ')}]...`
 
     const tMats = await matcher.prepareTemplates targets
+    let lastResults = []
 
     try
       while Date.now() - startTime < timeoutMs
         const buffer = getLatestFrame()
         
         if buffer
-          const results = await matcher.findImagesFromMats buffer, tMats, threshold
+          lastResults = await matcher.findImagesFromMats buffer, tMats, threshold
           
           // Wait for ANY to be found
-          const found = results.find (r) => r.found
+          const found = lastResults.find (r) => r.found
           const time = Date.now() - startTime
           
           if found
-             return res.json { results, time, winner: found.name }
+             return res.json { results: lastResults, time, winner: found.name }
         
         await sleep 100 
       
-      res.json { results: null, time: null, winner: null }
+      res.json { results: lastResults, time: timeoutMs, winner: null }
     finally
        matcher.freeTemplates tMats
 

@@ -103,13 +103,17 @@ The Automation API allows you to find images on the device screen and perform ac
 curl -X POST http://localhost:3000/api/match/scan \
   -H "Content-Type: application/json" \
   -d '{
-    "targets": [{"name": "button", "image": "data:image/png;base64,..."}],
+    "targets": [{"name": "btn/to-home.png", "image": "data:image/png;base64,..."}],
     "threshold": 0.85
   }'
 ```
 Response:
 ```json
-{"results": [{"name": "button", "found": true, "score": 0.92, "x": 100, "y": 200}]}
+{
+  "results": [
+    {"name": "btn/to-home.png", "found": true, "score": 0.92, "x": 100, "y": 200}
+  ]
+}
 ```
 
 #### Wait (Poll until ALL found)
@@ -117,30 +121,66 @@ Response:
 curl -X POST http://localhost:3000/api/match/wait \
   -H "Content-Type: application/json" \
   -d '{
-    "targets": [{"name": "btn1", "image": "..."}],
+    "targets": [{"name": "btn/to-home.png", "image": "data:image/png;base64,..."}],
     "threshold": 0.85,
     "timeout": 5000
   }'
 ```
 Response:
 ```json
-{"results": [{"name": "btn1", "found": true, "score": 0.91, "x": 50, "y": 100}], "time": 1234}
+{
+  "success": true,
+  "results": [
+    {"name": "btn/to-home.png", "found": true, "score": 0.91, "x": 50, "y": 100}
+  ],
+  "time": 1234
+}
 ```
-Timeout response: `{"results": null, "time": null}`
+Timeout response:
+```json
+{
+  "success": false,
+  "results": [
+    {"name": "btn/to-home.png", "found": false, "score": 0.60, "x": null, "y": null}
+  ],
+  "time": 5000
+}
+```
 
 #### Race (Poll until ANY found)
 ```bash
 curl -X POST http://localhost:3000/api/match/race \
   -H "Content-Type: application/json" \
   -d '{
-    "targets": [{"name": "a", "image": "..."}, {"name": "b", "image": "..."}],
+    "targets": [
+      {"name": "btn/to-home.png", "image": "data:image/png;base64,..."},
+      {"name": "btn/to-charas.png", "image": "data:image/png;base64,..."}
+    ],
     "threshold": 0.85,
     "timeout": 5000
   }'
 ```
 Response:
 ```json
-{"results": [...], "time": 500, "winner": "a"}
+{
+  "results": [
+    {"name": "btn/to-home.png", "found": true, "score": 0.95, "x": 100, "y": 200},
+    {"name": "btn/to-charas.png", "found": false, "score": 0.60, "x": null, "y": null}
+  ],
+  "time": 500,
+  "winner": "btn/to-home.png"
+}
+```
+Timeout response:
+```json
+{
+  "results": [
+    {"name": "btn/to-home.png", "found": false, "score": 0.50, "x": null, "y": null},
+    {"name": "btn/to-charas.png", "found": false, "score": 0.40, "x": null, "y": null}
+  ],
+  "time": 5000,
+  "winner": null
+}
 ```
 
 #### Best (One-shot, return best match)
@@ -148,13 +188,22 @@ Response:
 curl -X POST http://localhost:3000/api/match/best \
   -H "Content-Type: application/json" \
   -d '{
-    "targets": [{"name": "a", "image": "..."}, {"name": "b", "image": "..."}],
+    "targets": [
+      {"name": "btn/to-home.png", "image": "data:image/png;base64,..."},
+      {"name": "btn/to-charas.png", "image": "data:image/png;base64,..."}
+    ],
     "threshold": 0.85
   }'
 ```
 Response:
 ```json
-{"results": [{"name": "a", "found": true, "score": 0.95, ...}, ...], "winner": "a"}
+{
+  "results": [
+    {"name": "btn/to-home.png", "found": true, "score": 0.95, "x": 100, "y": 200},
+    {"name": "btn/to-charas.png", "found": true, "score": 0.88, "x": 300, "y": 400}
+  ],
+  "winner": "btn/to-home.png"
+}
 ```
 
 ### Action Endpoints
@@ -164,17 +213,25 @@ Response:
 curl -X POST http://localhost:3000/api/action/tap \
   -H "Content-Type: application/json" \
   -d '{
-    "target": {"name": "button", "image": "data:image/png;base64,..."},
+    "target": {"name": "btn/to-home.png", "image": "data:image/png;base64,..."},
     "threshold": 0.85
   }'
 ```
 Response (success):
 ```json
-{"success": true, "message": "Tapped button", "x": 150, "y": 250}
+{
+  "success": true,
+  "message": "Tapped btn/to-home.png",
+  "x": 150,
+  "y": 250
+}
 ```
 Response (not found):
 ```json
-{"success": false, "message": "Target not found"}
+{
+  "success": false,
+  "message": "Target not found"
+}
 ```
 
 #### Seek (Poll until found, then tap)
@@ -182,14 +239,20 @@ Response (not found):
 curl -X POST http://localhost:3000/api/action/seek \
   -H "Content-Type: application/json" \
   -d '{
-    "target": {"name": "button", "image": "data:image/png;base64,..."},
+    "target": {"name": "btn/to-home.png", "image": "data:image/png;base64,..."},
     "threshold": 0.85,
     "timeout": 5000
   }'
 ```
 Response:
 ```json
-{"success": true, "message": "Tapped button", "x": 150, "y": 250, "time": 1200}
+{
+  "success": true,
+  "message": "Tapped btn/to-home.png",
+  "x": 150,
+  "y": 250,
+  "time": 1200
+}
 ```
 
 #### Swipe
@@ -200,7 +263,9 @@ curl -X POST http://localhost:3000/api/action/swipe \
 ```
 Response:
 ```json
-{"success": true}
+{
+  "success": true
+}
 ```
 
 ### Device Info
@@ -211,5 +276,8 @@ curl http://localhost:3000/api/device/size
 ```
 Response:
 ```json
-{"width": 1200, "height": 1920}
+{
+  "width": 1200,
+  "height": 1920
+}
 ```

@@ -44,12 +44,13 @@ function matchTemplate(screenMat, targetMat, threshold)
     
     const minMax = cv.cv.minMaxLoc result
     const { maxVal, maxLoc } = minMax
+    const found = maxVal >= threshold
     
     return
-      found: maxVal >= threshold
+      found: found
       score: maxVal
-      x: maxLoc.x
-      y: maxLoc.y
+      x: if found then maxLoc.x else null
+      y: if found then maxLoc.y else null
       
   finally
     result.delete()
