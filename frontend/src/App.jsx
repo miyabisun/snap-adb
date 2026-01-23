@@ -10,7 +10,7 @@ function App() {
   return (
     <div className="container">
       <div className="header-row">
-        <h1>snap-adb</h1>
+        <h1>adb-pilot</h1>
         <div className="tabs">
           <button
             type="button"

@@ -1,4 +1,4 @@
-# snap-adb
+# adb-pilot
 
 A lightweight web-based tool to stream an Android device's screen via ADB and capture high-quality, cropped screenshots (icons) to a local directory.
 
